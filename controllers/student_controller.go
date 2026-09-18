@@ -15,22 +15,23 @@ type CreateStudentInput struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 	NIS      string `json:"nis" binding:"required"`
-	NISN     string `json:"nisn"` // Tambahkan ini
-	Gender   string `json:"gender"` // Tambahkan ini
+	NISN     string `json:"nisn"`
+	Gender   string `json:"gender"`
 	ClassID  uint   `json:"class_id" binding:"required"`
 	Phone    string `json:"phone"`
 	Address  string `json:"address"`
 }
 
 type UpdateStudentInput struct {
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	NIS     string `json:"nis"`
-	NISN    string `json:"nisn"` // Tambahkan ini
-	Gender  string `json:"gender"` // Tambahkan ini
-	ClassID uint   `json:"class_id"`
-	Phone   string `json:"phone"`
-	Address string `json:"address"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	NIS      string `json:"nis"`
+	NISN     string `json:"nisn"`
+	Gender   string `json:"gender"`
+	ClassID  uint   `json:"class_id"`
+	Phone    string `json:"phone"`
+	Address  string `json:"address"`
 }
 
 func GetStudents(c *gin.Context) {
@@ -112,6 +113,8 @@ func CreateStudent(c *gin.Context) {
 	student := models.Student{
 		UserID:  user.ID,
 		NIS:     input.NIS,
+		NISN:    input.NISN,
+		Gender:  input.Gender,
 		ClassID: input.ClassID,
 		Phone:   input.Phone,
 		Address: input.Address,
@@ -163,6 +166,12 @@ func UpdateStudent(c *gin.Context) {
 		if input.Email != "" {
 			user.Email = input.Email
 		}
+		if input.Password != "" {
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+			if err == nil {
+				user.Password = string(hashedPassword)
+			}
+		}
 		if err := tx.Save(&user).Error; err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui akun user siswa"})
@@ -184,6 +193,12 @@ func UpdateStudent(c *gin.Context) {
 	// Update data Student
 	if input.NIS != "" {
 		student.NIS = input.NIS
+	}
+	if input.NISN != "" {
+		student.NISN = input.NISN
+	}
+	if input.Gender != "" {
+		student.Gender = input.Gender
 	}
 	if input.Phone != "" {
 		student.Phone = input.Phone

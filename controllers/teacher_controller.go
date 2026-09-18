@@ -10,26 +10,28 @@ import (
 	"school-management/models"
 )
 
-// Struct untuk menampung request body saat membuat Teacher baru
 type CreateTeacherInput struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
-	NIP      string `json:"nip" binding:"required"`
+	NIP      string `json:"nip"`
+	Gender   string `json:"gender"`
+	Subject  string `json:"subject"`
 	Phone    string `json:"phone"`
 	Address  string `json:"address"`
 }
 
-// Struct untuk menampung request body saat update Teacher
 type UpdateTeacherInput struct {
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	NIP     string `json:"nip"`
-	Phone   string `json:"phone"`
-	Address string `json:"address"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	NIP      string `json:"nip"`
+	Gender   string `json:"gender"`
+	Subject  string `json:"subject"`
+	Phone    string `json:"phone"`
+	Address  string `json:"address"`
 }
 
-// GetTeachers - Mendapatkan semua data guru (Hanya ADMIN)
 func GetTeachers(c *gin.Context) {
 	var teachers []models.Teacher
 	if err := config.DB.Preload("User").Find(&teachers).Error; err != nil {
@@ -43,7 +45,6 @@ func GetTeachers(c *gin.Context) {
 	})
 }
 
-// GetTeacherByID - Mendapatkan detail guru berdasarkan ID
 func GetTeacherByID(c *gin.Context) {
 	id := c.Param("id")
 	var teacher models.Teacher
@@ -63,7 +64,6 @@ func GetTeacherByID(c *gin.Context) {
 	})
 }
 
-// CreateTeacher - Membuat data user baru dengan role TEACHER dan data teacher-nya sekaligus
 func CreateTeacher(c *gin.Context) {
 	var input CreateTeacherInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -85,6 +85,7 @@ func CreateTeacher(c *gin.Context) {
 
 	tx := config.DB.Begin()
 
+	// 1. Buat User
 	user := models.User{
 		Name:     input.Name,
 		Email:    input.Email,
@@ -97,9 +98,12 @@ func CreateTeacher(c *gin.Context) {
 		return
 	}
 
+	// 2. Buat Teacher
 	teacher := models.Teacher{
 		UserID:  user.ID,
 		NIP:     input.NIP,
+		Gender:  input.Gender,
+		Subject: input.Subject,
 		Phone:   input.Phone,
 		Address: input.Address,
 	}
@@ -110,6 +114,7 @@ func CreateTeacher(c *gin.Context) {
 	}
 
 	tx.Commit()
+
 	config.DB.Preload("User").First(&teacher, teacher.ID)
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -118,7 +123,6 @@ func CreateTeacher(c *gin.Context) {
 	})
 }
 
-// UpdateTeacher - Memperbarui data guru
 func UpdateTeacher(c *gin.Context) {
 	id := c.Param("id")
 	var teacher models.Teacher
@@ -140,6 +144,7 @@ func UpdateTeacher(c *gin.Context) {
 
 	tx := config.DB.Begin()
 
+	// Update data User
 	var user models.User
 	if err := tx.First(&user, teacher.UserID).Error; err == nil {
 		if input.Name != "" {
@@ -148,6 +153,12 @@ func UpdateTeacher(c *gin.Context) {
 		if input.Email != "" {
 			user.Email = input.Email
 		}
+		if input.Password != "" {
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+			if err == nil {
+				user.Password = string(hashedPassword)
+			}
+		}
 		if err := tx.Save(&user).Error; err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui akun user guru"})
@@ -155,9 +166,22 @@ func UpdateTeacher(c *gin.Context) {
 		}
 	}
 
-	if input.NIP != "" { teacher.NIP = input.NIP }
-	if input.Phone != "" { teacher.Phone = input.Phone }
-	if input.Address != "" { teacher.Address = input.Address }
+	// Update data Teacher
+	if input.NIP != "" {
+		teacher.NIP = input.NIP
+	}
+	if input.Gender != "" {
+		teacher.Gender = input.Gender
+	}
+	if input.Subject != "" {
+		teacher.Subject = input.Subject
+	}
+	if input.Phone != "" {
+		teacher.Phone = input.Phone
+	}
+	if input.Address != "" {
+		teacher.Address = input.Address
+	}
 
 	if err := tx.Save(&teacher).Error; err != nil {
 		tx.Rollback()
@@ -166,6 +190,7 @@ func UpdateTeacher(c *gin.Context) {
 	}
 
 	tx.Commit()
+
 	config.DB.Preload("User").First(&teacher, teacher.ID)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -174,7 +199,6 @@ func UpdateTeacher(c *gin.Context) {
 	})
 }
 
-// DeleteTeacher - Menghapus data guru beserta akun usernya
 func DeleteTeacher(c *gin.Context) {
 	id := c.Param("id")
 	var teacher models.Teacher
