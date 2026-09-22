@@ -13,7 +13,7 @@ import (
 type CreateStudentInput struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password"`
 	NIS      string `json:"nis" binding:"required"`
 	NISN     string `json:"nisn"`
 	Gender   string `json:"gender"`
