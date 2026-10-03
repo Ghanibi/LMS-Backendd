@@ -74,10 +74,17 @@ func CreateStudent(c *gin.Context) {
 		return
 	}
 
-	// Cek ketersediaan email
-	var existingUser models.User
-	if err := config.DB.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
+	// Cek duplikat email, NIS, dan panjang password
+	if emailTakenByOther(input.Email, 0) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email sudah terdaftar"})
+		return
+	}
+	if nisTakenByOther(input.NIS, 0) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "NIS/NISN sudah terdaftar"})
+		return
+	}
+	if len(input.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password minimal 6 karakter"})
 		return
 	}
 
@@ -152,6 +159,19 @@ func UpdateStudent(c *gin.Context) {
 	var input UpdateStudentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.Email != "" && emailTakenByOther(input.Email, student.UserID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email sudah terdaftar"})
+		return
+	}
+	if input.NIS != "" && nisTakenByOther(input.NIS, student.ID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "NIS/NISN sudah terdaftar"})
+		return
+	}
+	if input.Password != "" && len(input.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password minimal 6 karakter"})
 		return
 	}
 

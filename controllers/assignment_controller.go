@@ -12,7 +12,7 @@ import (
 
 type AssignmentInput struct {
 	ClassSubjectID uint      `json:"class_subject_id" binding:"required"`
-	TeacherID      uint      `json:"teacher_id" binding:"required"`
+	TeacherID      uint      `json:"teacher_id"`
 	Title          string    `json:"title" binding:"required"`
 	Description    string    `json:"description"`
 	DueDate        time.Time `json:"due_date" binding:"required"`
@@ -20,8 +20,17 @@ type AssignmentInput struct {
 }
 
 func GetAssignments(c *gin.Context) {
+	query := config.DB.Preload("Teacher")
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Data guru tidak ditemukan"})
+			return
+		}
+		query = query.Where("teacher_id = ?", teacher.ID)
+	}
 	var assignments []models.Assignment
-	if err := config.DB.Preload("Teacher").Find(&assignments).Error; err != nil {
+	if err := query.Find(&assignments).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tugas"})
 		return
 	}
@@ -46,6 +55,21 @@ func CreateAssignment(c *gin.Context) {
 	var input AssignmentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Data guru tidak ditemukan"})
+			return
+		}
+		if !teacherOwnsClassSubject(teacher.ID, input.ClassSubjectID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak ditugaskan mengajar kelas dan mata pelajaran ini"})
+			return
+		}
+		input.TeacherID = teacher.ID
+	} else if input.TeacherID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Guru wajib dipilih"})
 		return
 	}
 
@@ -80,10 +104,28 @@ func UpdateAssignment(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tugas tidak ditemukan"})
 		return
 	}
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil || assignment.TeacherID != teacher.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak berhak mengubah tugas ini"})
+			return
+		}
+	}
 
 	var input AssignmentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil || !teacherOwnsClassSubject(teacher.ID, input.ClassSubjectID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak ditugaskan mengajar kelas dan mata pelajaran ini"})
+			return
+		}
+		input.TeacherID = teacher.ID
+	} else if input.TeacherID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Guru wajib dipilih"})
 		return
 	}
 
@@ -112,6 +154,13 @@ func DeleteAssignment(c *gin.Context) {
 	if err := config.DB.First(&assignment, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tugas tidak ditemukan"})
 		return
+	}
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil || assignment.TeacherID != teacher.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak berhak menghapus tugas ini"})
+			return
+		}
 	}
 	if err := config.DB.Delete(&assignment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus tugas"})

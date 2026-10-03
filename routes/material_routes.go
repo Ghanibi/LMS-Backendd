@@ -8,9 +8,9 @@ import (
 
 func MaterialRoutes(router *gin.Engine) {
 	materialGroup := router.Group("/api/materials")
-	
+
 	materialGroup.Use(middleware.AuthMiddleware())
-	materialGroup.Use(middleware.RoleMiddleware("ADMIN"))
+	materialGroup.Use(middleware.RoleMiddleware("ADMIN", "TEACHER"))
 	{
 		materialGroup.GET("", controllers.GetMaterials)
 		materialGroup.GET("/:id", controllers.GetMaterialByID)

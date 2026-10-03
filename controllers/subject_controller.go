@@ -10,8 +10,9 @@ import (
 )
 
 type SubjectInput struct {
-	Name string `json:"name" binding:"required"`
-	Code string `json:"code" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+	Description string `json:"description"`
 }
 
 func GetSubjects(c *gin.Context) {
@@ -45,15 +46,16 @@ func CreateSubject(c *gin.Context) {
 	}
 
 	subject := models.Subject{
-		Name: input.Name,
-		Code: input.Code,
+		Name:        input.Name,
+		Code:        input.Code,
+		Description: input.Description,
 	}
 
 	if err := config.DB.Create(&subject).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat mata pelajaran, pastikan kode unik"})
 		return
 	}
-	
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Mata pelajaran berhasil ditambahkan", "data": subject})
 }
 
@@ -74,6 +76,7 @@ func UpdateSubject(c *gin.Context) {
 
 	subject.Name = input.Name
 	subject.Code = input.Code
+	subject.Description = input.Description
 
 	if err := config.DB.Save(&subject).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui mata pelajaran"})

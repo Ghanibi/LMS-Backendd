@@ -18,13 +18,26 @@ type SubmitAssignmentInput struct {
 }
 
 type GradeSubmissionInput struct {
-	Score    float64 `json:"score" binding:"required"`
+	Score    float64 `json:"score"`
 	Feedback string  `json:"feedback"`
 }
 
 func GetSubmissions(c *gin.Context) {
+	query := config.DB.Preload("Assignment").Preload("Student").Preload("Student.User")
+
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Data guru tidak ditemukan"})
+			return
+		}
+		query = query.
+			Joins("JOIN assignments ON assignments.id = assignment_submissions.assignment_id").
+			Where("assignments.teacher_id = ?", teacher.ID)
+	}
+
 	var submissions []models.AssignmentSubmission
-	if err := config.DB.Preload("Assignment").Preload("Student").Find(&submissions).Error; err != nil {
+	if err := query.Find(&submissions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pengumpulan tugas"})
 		return
 	}
@@ -61,13 +74,21 @@ func GradeSubmission(c *gin.Context) {
 	id := c.Param("id")
 	var submission models.AssignmentSubmission
 
-	if err := config.DB.First(&submission, id).Error; err != nil {
+	if err := config.DB.Preload("Assignment").First(&submission, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Pengumpulan tugas tidak ditemukan"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Terjadi kesalahan pada server"})
 		return
+	}
+
+	if currentRole(c) == "TEACHER" {
+		teacher, err := currentTeacher(c)
+		if err != nil || submission.Assignment.TeacherID != teacher.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses untuk menilai pengumpulan ini"})
+			return
+		}
 	}
 
 	var input GradeSubmissionInput

@@ -8,9 +8,9 @@ import (
 
 func AssignmentRoutes(router *gin.Engine) {
 	assignmentGroup := router.Group("/api/assignments")
-	
+
 	assignmentGroup.Use(middleware.AuthMiddleware())
-	assignmentGroup.Use(middleware.RoleMiddleware("ADMIN"))
+	assignmentGroup.Use(middleware.RoleMiddleware("ADMIN", "TEACHER"))
 	{
 		assignmentGroup.GET("", controllers.GetAssignments)
 		assignmentGroup.GET("/:id", controllers.GetAssignmentByID)

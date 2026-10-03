@@ -34,8 +34,13 @@ func main() {
 		&models.ExamAnswer{},
 		&models.Grade{},
 		&models.Announcement{},
+		&models.ClassDiscussion{},
+		&models.ClassAttendance{},
+		&models.ClassroomEvent{},
+		&models.HomeroomNote{},
 		&models.Notification{},
 		&models.AcademicEvent{},
+		&models.Attachment{},
 	)
 	if err != nil {
 		log.Fatalf("Gagal melakukan AutoMigrate: %v", err)
@@ -45,12 +50,13 @@ func main() {
 	// 3. Jalankan Seeder
 	seed.SeedEducationLevels()
 	seed.SeedClasses()
-	seed.SeedUsers() // Seeder user akan membuat admin dengan password ter-hash
+	seed.SeedSubjects()
+	seed.SeedCalendars()
+	seed.SeedUsers()
 
 	// 4. Setup Gin Server
 	router := gin.Default()
 
-	// Konfigurasi CORS agar diizinkan diakses oleh Frontend (Vite)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -62,14 +68,20 @@ func main() {
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
 	routes.TeacherRoutes(router)
+	routes.TeacherSelfRoutes(router)
 	routes.StudentRoutes(router)
 	routes.ClassRoutes(router)
+	routes.EducationLevelRoutes(router)
 	routes.SubjectRoutes(router)
 	routes.MaterialRoutes(router)
 	routes.AssignmentRoutes(router)
 	routes.SubmissionRoutes(router)
+	routes.AnnouncementRoutes(router)
+	routes.ClassroomRoutes(router)
+	routes.CalendarRoutes(router)
+	routes.TeachingAssignmentRoutes(router)
+	routes.AttachmentRoutes(router)
 
-	// Jalankan server
 	log.Println("Server berjalan di http://localhost:8080")
 	router.Run(":8080")
 }

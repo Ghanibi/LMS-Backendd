@@ -11,6 +11,7 @@ func SeedEducationLevels() {
 	levels := []models.EducationLevel{
 		{Name: "SMP"},
 		{Name: "SMA"},
+		{Name: "SMK"},
 	}
 
 	for _, level := range levels {
