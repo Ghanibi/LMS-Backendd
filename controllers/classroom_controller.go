@@ -12,7 +12,7 @@ import (
 )
 
 func canAccessClassroom(c *gin.Context, classID uint) bool {
-	if currentRole(c) == "ADMIN" {
+	if isAdminRole(c) {
 		return true
 	}
 	if currentRole(c) == "TEACHER" {
@@ -33,7 +33,7 @@ func canAccessClassroom(c *gin.Context, classID uint) bool {
 }
 
 func canManageClassroom(c *gin.Context, classID uint) bool {
-	if currentRole(c) == "ADMIN" {
+	if isAdminRole(c) {
 		return true
 	}
 	if currentRole(c) != "TEACHER" {

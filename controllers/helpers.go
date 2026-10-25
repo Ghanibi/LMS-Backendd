@@ -48,6 +48,11 @@ func currentRole(c *gin.Context) string {
 	return ""
 }
 
+func isAdminRole(c *gin.Context) bool {
+	role := currentRole(c)
+	return role == "ADMIN" || role == "SUPER_ADMIN"
+}
+
 // currentUserID mengambil user_id pengguna yang sedang login dari context JWT.
 func currentUserID(c *gin.Context) uint {
 	if v, ok := c.Get("user_id"); ok {

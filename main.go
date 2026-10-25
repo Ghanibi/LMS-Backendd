@@ -25,6 +25,7 @@ func main() {
 		&models.Teacher{},
 		&models.Student{},
 		&models.ClassSubject{},
+		&models.ClassSchedule{},
 		&models.TeacherSubject{},
 		&models.Material{},
 		&models.Assignment{},
@@ -53,6 +54,7 @@ func main() {
 	seed.SeedSubjects()
 	seed.SeedCalendars()
 	seed.SeedUsers()
+	seed.SeedClassScheduleSource()
 
 	// 4. Setup Gin Server
 	router := gin.Default()
@@ -67,9 +69,12 @@ func main() {
 	// Daftarkan routes
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
+	routes.SuperAdminRoutes(router)
 	routes.TeacherRoutes(router)
 	routes.TeacherSelfRoutes(router)
 	routes.StudentRoutes(router)
+	routes.StudentPortalRoutes(router)
+	routes.LeadershipRoutes(router)
 	routes.ClassRoutes(router)
 	routes.EducationLevelRoutes(router)
 	routes.SubjectRoutes(router)

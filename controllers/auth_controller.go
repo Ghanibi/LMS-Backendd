@@ -74,6 +74,48 @@ func Login(c *gin.Context) {
 	})
 }
 
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=8,max=72"`
+}
+
+// ChangePassword changes only the authenticated user's own password.
+func ChangePassword(c *gin.Context) {
+	userID := currentUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi pengguna tidak valid"})
+		return
+	}
+	var input ChangePasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru minimal 8 karakter dan maksimal 72 byte"})
+		return
+	}
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Akun tidak ditemukan"})
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Password lama tidak sesuai"})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.NewPassword)) == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus berbeda dari password lama"})
+		return
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Password baru gagal diamankan"})
+		return
+	}
+	if err := config.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Password gagal diperbarui"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil diubah"})
+}
+
 // FUNGSI BARU: GetMe
 // Fungsi ini untuk mengambil data user yang sedang login dari context.
 // Data ini didapatkan dari token JWT yang sudah divalidasi oleh middleware.

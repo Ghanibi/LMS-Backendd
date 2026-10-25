@@ -84,6 +84,12 @@ func RoleMiddleware(requiredRoles ...string) gin.HandlerFunc {
 				c.Next() // Role cocok, lanjutkan ke handler berikutnya
 				return
 			}
+			// SUPER_ADMIN mewarisi akses ADMIN ke modul sekolah, tetapi tidak otomatis
+			// mewarisi akses role lain.
+			if userRole == "SUPER_ADMIN" && requiredRole == "ADMIN" {
+				c.Next()
+				return
+			}
 		}
 
 		// Jika loop selesai dan tidak ada role yang cocok

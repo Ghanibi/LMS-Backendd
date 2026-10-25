@@ -34,7 +34,7 @@ var allowedAttachmentExtensions = map[string]bool{
 }
 
 func attachmentAccessAllowed(c *gin.Context, resourceType string, resourceID uint) bool {
-	if currentRole(c) == "ADMIN" {
+	if isAdminRole(c) {
 		return true
 	}
 	if currentRole(c) != "TEACHER" || (resourceType != "assignments" && resourceType != "materials") {
@@ -50,6 +50,29 @@ func attachmentAccessAllowed(c *gin.Context, resourceType string, resourceID uin
 	}
 	var material models.Material
 	return config.DB.Select("id").Where("id = ? AND teacher_id = ?", resourceID, teacher.ID).First(&material).Error == nil
+}
+
+func attachmentReadAllowed(c *gin.Context, resourceType string, resourceID uint) bool {
+	if attachmentAccessAllowed(c, resourceType, resourceID) {
+		return true
+	}
+	if currentRole(c) != "STUDENT" && currentRole(c) != "SISWA" {
+		return false
+	}
+	student, err := currentStudent(c)
+	if err != nil {
+		return false
+	}
+	switch resourceType {
+	case "materials":
+		var material models.Material
+		return config.DB.Joins("JOIN class_subjects ON class_subjects.id = materials.class_subject_id").Where("materials.id = ? AND class_subjects.class_id = ?", resourceID, student.ClassID).First(&material).Error == nil
+	case "assignments":
+		var assignment models.Assignment
+		return config.DB.Joins("JOIN class_subjects ON class_subjects.id = assignments.class_subject_id").Where("assignments.id = ? AND class_subjects.class_id = ?", resourceID, student.ClassID).First(&assignment).Error == nil
+	default:
+		return false
+	}
 }
 
 func parseAttachmentTarget(c *gin.Context) (string, uint, bool) {
@@ -151,7 +174,7 @@ func GetAttachmentFile(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Lampiran tidak ditemukan"})
 		return
 	}
-	if !attachmentAccessAllowed(c, attachment.ResourceType, attachment.ResourceID) {
+	if !attachmentReadAllowed(c, attachment.ResourceType, attachment.ResourceID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak berhak mengakses lampiran ini"})
 		return
 	}

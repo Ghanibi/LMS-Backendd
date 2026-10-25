@@ -12,6 +12,10 @@ func UserRoutes(router *gin.Engine) {
 	userGroup := router.Group("/api/users")
 	userGroup.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware("ADMIN"))
 	{
+		userGroup.GET("/leadership-accounts", controllers.GetLeadershipAccounts)
+		userGroup.POST("/leadership-accounts", controllers.CreateLeadershipAccount)
+		userGroup.PUT("/leadership-accounts/:id", controllers.UpdateLeadershipAccount)
+		userGroup.DELETE("/leadership-accounts/:id", controllers.DeleteLeadershipAccount)
 		userGroup.POST("/", controllers.CreateUser)
 		userGroup.GET("/", controllers.GetUsers)
 		userGroup.GET("/:id", controllers.GetUserByID)
