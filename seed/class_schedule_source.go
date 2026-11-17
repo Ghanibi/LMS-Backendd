@@ -150,3 +150,57 @@ func SeedClassScheduleSource() {
 	}
 	log.Printf("Jadwal %s diimpor: %d slot untuk %d kelas; slot tanpa mapel pasti ditandai untuk ditinjau.", source.SchoolYear, len(entries), len(classes))
 }
+
+// ResolveUnambiguousScheduleSubjects fills only slots whose teacher field names
+// one clear subject. Ambiguous or conflicting fields stay flagged for Admin review.
+func ResolveUnambiguousScheduleSubjects() {
+	fieldToSubject := map[string]string{
+		"pbdhs. inggris":                "Bahasa Inggris",
+		"b. inggris - walas":            "Bahasa Inggris",
+		"b inggris - walas":             "Bahasa Inggris",
+		"bhs. inggris - walas":          "Bahasa Inggris",
+		"b. inggris":                    "Bahasa Inggris",
+		"matematika":                    "Matematika",
+		"matematika - walas":            "Matematika",
+		"pjok":                          "Pendidikan Jasmani, Olahraga & Kesehatan",
+		"pjok - walas":                  "Pendidikan Jasmani, Olahraga & Kesehatan",
+		"pai - walas":                   "Pendidikan Agama & Budi Pekerti",
+		"pai -walas":                    "Pendidikan Agama & Budi Pekerti",
+		"b. indonesia - walas":          "Bahasa Indonesia",
+		"b. indonesia - walas -":        "Bahasa Indonesia",
+		"bahasa indonesia - walas":      "Bahasa Indonesia",
+		"waka humas - bahasa indonesia": "Bahasa Indonesia",
+		"b. jepang":                     "Bahasa Jepang",
+		"b. jerman - walas":             "Bahasa Jerman",
+	}
+	var pending []models.ClassSchedule
+	if err := config.DB.Where("needs_review = ? AND subject_id IS NULL", true).Find(&pending).Error; err != nil {
+		log.Printf("Gagal mencari mapel jadwal yang bisa dipastikan: %v", err)
+		return
+	}
+	resolved := 0
+	for _, entry := range pending {
+		field := strings.ToLower(strings.Join(strings.Fields(entry.TeacherField), " "))
+		name, ok := fieldToSubject[field]
+		if !ok || strings.TrimSpace(entry.SubjectSuggestion) != "" {
+			continue
+		}
+		var subject models.Subject
+		err := config.DB.Where("LOWER(name) = LOWER(?)", name).First(&subject).Error
+		if err != nil {
+			subject = models.Subject{Name: name, Code: scheduleSubjectCode(name), Description: "Dicocokkan dari bidang tugas tunggal pada PDF Kode Guru SMK"}
+			if createErr := config.DB.Where("code = ?", subject.Code).FirstOrCreate(&subject, subject).Error; createErr != nil {
+				log.Printf("Gagal menyiapkan mapel hasil pencocokan %s: %v", name, createErr)
+				continue
+			}
+		}
+		if err := config.DB.Model(&entry).Updates(map[string]any{"subject_id": subject.ID, "needs_review": false}).Error; err != nil {
+			log.Printf("Gagal memperbarui slot jadwal %d: %v", entry.ID, err)
+			continue
+		}
+		resolved++
+	}
+	if resolved > 0 {
+		log.Printf("Konfirmasi otomatis jadwal: %d slot cocok dengan satu bidang mapel; slot ambigu tetap perlu ditinjau Admin.", resolved)
+	}
+}

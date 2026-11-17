@@ -55,6 +55,7 @@ func main() {
 	seed.SeedCalendars()
 	seed.SeedUsers()
 	seed.SeedClassScheduleSource()
+	seed.ResolveUnambiguousScheduleSubjects()
 
 	// 4. Setup Gin Server
 	router := gin.Default()
@@ -69,6 +70,7 @@ func main() {
 	// Daftarkan routes
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
+	routes.DashboardRoutes(router)
 	routes.SuperAdminRoutes(router)
 	routes.TeacherRoutes(router)
 	routes.TeacherSelfRoutes(router)

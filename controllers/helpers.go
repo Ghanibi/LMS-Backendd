@@ -2,11 +2,20 @@ package controllers
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"school-management/config"
 	"school-management/models"
 )
+
+func optionalString(value string) *string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
 
 func emailTakenByOther(email string, exceptUserID uint) bool {
 	var count int64

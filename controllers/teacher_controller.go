@@ -11,25 +11,35 @@ import (
 )
 
 type CreateTeacherInput struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password"`
-	NIP      string `json:"nip"`
-	Gender   string `json:"gender"`
-	Subject  string `json:"subject"`
-	Phone    string `json:"phone"`
-	Address  string `json:"address"`
+	Name         string `json:"name" binding:"required"`
+	Email        string `json:"email" binding:"required,email"`
+	Password     string `json:"password"`
+	NIP          string `json:"nip"`
+	Gender       string `json:"gender"`
+	Subject      string `json:"subject"`
+	Phone        string `json:"phone"`
+	Address      string `json:"address"`
+	Code         string `json:"code"`
+	Position     string `json:"position"`
+	PlusHours    int    `json:"plus_hours"`
+	RegularHours int    `json:"regular_hours"`
+	TotalHours   int    `json:"total_hours"`
 }
 
 type UpdateTeacherInput struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	NIP      string `json:"nip"`
-	Gender   string `json:"gender"`
-	Subject  string `json:"subject"`
-	Phone    string `json:"phone"`
-	Address  string `json:"address"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Password     string `json:"password"`
+	NIP          string `json:"nip"`
+	Gender       string `json:"gender"`
+	Subject      string `json:"subject"`
+	Phone        string `json:"phone"`
+	Address      string `json:"address"`
+	Code         string `json:"code"`
+	Position     string `json:"position"`
+	PlusHours    *int   `json:"plus_hours"`
+	RegularHours *int   `json:"regular_hours"`
+	TotalHours   *int   `json:"total_hours"`
 }
 
 func GetTeachers(c *gin.Context) {
@@ -107,12 +117,17 @@ func CreateTeacher(c *gin.Context) {
 
 	// 2. Buat Teacher
 	teacher := models.Teacher{
-		UserID:  user.ID,
-		NIP:     input.NIP,
-		Gender:  input.Gender,
-		Subject: input.Subject,
-		Phone:   input.Phone,
-		Address: input.Address,
+		UserID:       user.ID,
+		NIP:          optionalString(input.NIP),
+		Gender:       input.Gender,
+		Subject:      input.Subject,
+		Phone:        input.Phone,
+		Address:      input.Address,
+		Code:         input.Code,
+		Position:     input.Position,
+		PlusHours:    input.PlusHours,
+		RegularHours: input.RegularHours,
+		TotalHours:   input.TotalHours,
 	}
 	if err := tx.Create(&teacher).Error; err != nil {
 		tx.Rollback()
@@ -188,7 +203,7 @@ func UpdateTeacher(c *gin.Context) {
 
 	// Update data Teacher
 	if input.NIP != "" {
-		teacher.NIP = input.NIP
+		teacher.NIP = optionalString(input.NIP)
 	}
 	if input.Gender != "" {
 		teacher.Gender = input.Gender
@@ -201,6 +216,21 @@ func UpdateTeacher(c *gin.Context) {
 	}
 	if input.Address != "" {
 		teacher.Address = input.Address
+	}
+	if input.Code != "" {
+		teacher.Code = input.Code
+	}
+	if input.Position != "" {
+		teacher.Position = input.Position
+	}
+	if input.PlusHours != nil {
+		teacher.PlusHours = *input.PlusHours
+	}
+	if input.RegularHours != nil {
+		teacher.RegularHours = *input.RegularHours
+	}
+	if input.TotalHours != nil {
+		teacher.TotalHours = *input.TotalHours
 	}
 
 	if err := tx.Save(&teacher).Error; err != nil {
