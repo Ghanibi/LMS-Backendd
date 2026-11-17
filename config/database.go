@@ -23,15 +23,16 @@ func ConnectDatabase() {
 	user := envOrDefault("DB_USER", "root")
 	password := os.Getenv("DB_PASSWORD")
 
-	dsnConfig := mysqlDriver.Config{
-		User:      user,
-		Passwd:    password,
-		Net:       "tcp",
-		Addr:      net.JoinHostPort(host, port),
-		DBName:    dbName,
-		ParseTime: true,
-		Loc:       time.Local,
-	}
+	// NewConfig applies driver defaults, including allowing MySQL native
+	// password authentication used by TiDB Cloud.
+	dsnConfig := mysqlDriver.NewConfig()
+	dsnConfig.User = user
+	dsnConfig.Passwd = password
+	dsnConfig.Net = "tcp"
+	dsnConfig.Addr = net.JoinHostPort(host, port)
+	dsnConfig.DBName = dbName
+	dsnConfig.ParseTime = true
+	dsnConfig.Loc = time.Local
 	if os.Getenv("DB_TLS") == "true" {
 		dsnConfig.TLSConfig = "true"
 	}
