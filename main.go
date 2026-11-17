@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -61,7 +62,7 @@ func main() {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{envOrDefault("FRONTEND_URL", "http://localhost:5173")},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -89,6 +90,16 @@ func main() {
 	routes.TeachingAssignmentRoutes(router)
 	routes.AttachmentRoutes(router)
 
-	log.Println("Server berjalan di http://localhost:8080")
-	router.Run(":8080")
+	port := envOrDefault("PORT", "8080")
+	log.Printf("Server berjalan di port %s", port)
+	if err := router.Run("0.0.0.0:" + port); err != nil {
+		log.Fatalf("Gagal menjalankan server: %v", err)
+	}
+}
+
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }
