@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"sync/atomic"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -12,53 +13,11 @@ import (
 	"school-management/seed"
 )
 
+var databaseReady atomic.Bool
+
 func main() {
-	// 1. Hubungkan ke Database
-	config.ConnectDatabase()
-
-	// 2. AutoMigrate semua model
-	log.Println("Menjalankan AutoMigrate...")
-	err := config.DB.AutoMigrate(
-		&models.User{},
-		&models.EducationLevel{},
-		&models.Class{},
-		&models.Subject{},
-		&models.Teacher{},
-		&models.Student{},
-		&models.ClassSubject{},
-		&models.ClassSchedule{},
-		&models.TeacherSubject{},
-		&models.Material{},
-		&models.Assignment{},
-		&models.AssignmentSubmission{},
-		&models.Exam{},
-		&models.ExamQuestion{},
-		&models.ExamAnswer{},
-		&models.Grade{},
-		&models.Announcement{},
-		&models.ClassDiscussion{},
-		&models.ClassAttendance{},
-		&models.ClassroomEvent{},
-		&models.HomeroomNote{},
-		&models.Notification{},
-		&models.AcademicEvent{},
-		&models.Attachment{},
-	)
-	if err != nil {
-		log.Fatalf("Gagal melakukan AutoMigrate: %v", err)
-	}
-	log.Println("AutoMigrate berhasil.")
-
-	// 3. Jalankan Seeder
-	seed.SeedEducationLevels()
-	seed.SeedClasses()
-	seed.SeedSubjects()
-	seed.SeedCalendars()
-	seed.SeedUsers()
-	seed.SeedClassScheduleSource()
-	seed.ResolveUnambiguousScheduleSubjects()
-
-	// 4. Setup Gin Server
+	// Start listening before database initialization so Vercel's startup probe
+	// can reach the process while TiDB migrations run.
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -67,6 +26,24 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
+	router.Use(func(c *gin.Context) {
+		if c.Request.URL.Path == "/healthz" {
+			c.Next()
+			return
+		}
+		if !databaseReady.Load() {
+			c.AbortWithStatusJSON(503, gin.H{"error": "Server sedang menyiapkan database. Coba lagi sebentar."})
+			return
+		}
+		c.Next()
+	})
+	router.GET("/healthz", func(c *gin.Context) {
+		if databaseReady.Load() {
+			c.JSON(200, gin.H{"status": "ready"})
+			return
+		}
+		c.JSON(503, gin.H{"status": "initializing"})
+	})
 
 	// Daftarkan routes
 	routes.AuthRoutes(router)
@@ -92,9 +69,61 @@ func main() {
 
 	port := envOrDefault("PORT", "8080")
 	log.Printf("Server berjalan di port %s", port)
+	go initializeDatabase(envOrDefault("RUN_DB_INIT", "true") == "true")
 	if err := router.Run("0.0.0.0:" + port); err != nil {
 		log.Fatalf("Gagal menjalankan server: %v", err)
 	}
+}
+
+func initializeDatabase(runMigrationsAndSeeds bool) {
+	config.ConnectDatabase()
+
+	if runMigrationsAndSeeds {
+		log.Println("Menjalankan AutoMigrate...")
+		err := config.DB.AutoMigrate(
+			&models.User{},
+			&models.EducationLevel{},
+			&models.Class{},
+			&models.Subject{},
+			&models.Teacher{},
+			&models.Student{},
+			&models.ClassSubject{},
+			&models.ClassSchedule{},
+			&models.TeacherSubject{},
+			&models.Material{},
+			&models.Assignment{},
+			&models.AssignmentSubmission{},
+			&models.Exam{},
+			&models.ExamQuestion{},
+			&models.ExamAnswer{},
+			&models.Grade{},
+			&models.Announcement{},
+			&models.ClassDiscussion{},
+			&models.ClassAttendance{},
+			&models.ClassroomEvent{},
+			&models.HomeroomNote{},
+			&models.Notification{},
+			&models.AcademicEvent{},
+			&models.Attachment{},
+		)
+		if err != nil {
+			log.Fatalf("Gagal melakukan AutoMigrate: %v", err)
+		}
+		log.Println("AutoMigrate berhasil.")
+
+		seed.SeedEducationLevels()
+		seed.SeedClasses()
+		seed.SeedSubjects()
+		seed.SeedCalendars()
+		seed.SeedUsers()
+		seed.SeedClassScheduleSource()
+		seed.ResolveUnambiguousScheduleSubjects()
+	} else {
+		log.Println("RUN_DB_INIT=false; melewati AutoMigrate dan seeder.")
+	}
+
+	databaseReady.Store(true)
+	log.Println("Database siap menerima request.")
 }
 
 func envOrDefault(key, fallback string) string {
