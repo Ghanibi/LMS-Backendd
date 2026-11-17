@@ -14,8 +14,10 @@ import (
 )
 
 var databaseReady atomic.Bool
+var databaseStatus atomic.Value
 
 func main() {
+	databaseStatus.Store("starting")
 	// Start listening before database initialization so Vercel's startup probe
 	// can reach the process while TiDB migrations run.
 	router := gin.Default()
@@ -42,7 +44,8 @@ func main() {
 			c.JSON(200, gin.H{"status": "ready"})
 			return
 		}
-		c.JSON(503, gin.H{"status": "initializing"})
+		stage, _ := databaseStatus.Load().(string)
+		c.JSON(503, gin.H{"status": "initializing", "stage": stage})
 	})
 
 	// Daftarkan routes
@@ -76,9 +79,13 @@ func main() {
 }
 
 func initializeDatabase(runMigrationsAndSeeds bool) {
+	databaseStatus.Store("connecting_to_database")
+	log.Println("Menghubungkan ke database...")
 	config.ConnectDatabase()
+	databaseStatus.Store("database_connected")
 
 	if runMigrationsAndSeeds {
+		databaseStatus.Store("running_migrations")
 		log.Println("Menjalankan AutoMigrate...")
 		err := config.DB.AutoMigrate(
 			&models.User{},
@@ -111,6 +118,7 @@ func initializeDatabase(runMigrationsAndSeeds bool) {
 		}
 		log.Println("AutoMigrate berhasil.")
 
+		databaseStatus.Store("running_seeders")
 		seed.SeedEducationLevels()
 		seed.SeedClasses()
 		seed.SeedSubjects()
@@ -122,6 +130,7 @@ func initializeDatabase(runMigrationsAndSeeds bool) {
 		log.Println("RUN_DB_INIT=false; melewati AutoMigrate dan seeder.")
 	}
 
+	databaseStatus.Store("ready")
 	databaseReady.Store(true)
 	log.Println("Database siap menerima request.")
 }
