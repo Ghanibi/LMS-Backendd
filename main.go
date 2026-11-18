@@ -81,7 +81,11 @@ func main() {
 func initializeDatabase(runMigrationsAndSeeds bool) {
 	databaseStatus.Store("connecting_to_database")
 	log.Println("Menghubungkan ke database...")
-	config.ConnectDatabase()
+	if err := config.ConnectDatabase(); err != nil {
+		databaseStatus.Store("database_connection_failed")
+		log.Printf("Gagal terhubung ke database: %v", err)
+		return
+	}
 	databaseStatus.Store("database_connected")
 
 	if runMigrationsAndSeeds {

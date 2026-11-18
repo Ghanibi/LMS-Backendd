@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -14,7 +13,7 @@ import (
 
 var DB *gorm.DB
 
-func ConnectDatabase() {
+func ConnectDatabase() error {
 	// Use the local development database by default. Set DB_HOST and the other
 	// DB_* variables in hosted environments; TiDB Cloud requires TLS.
 	host := envOrDefault("DB_HOST", "127.0.0.1")
@@ -33,6 +32,9 @@ func ConnectDatabase() {
 	dsnConfig.DBName = dbName
 	dsnConfig.ParseTime = true
 	dsnConfig.Loc = time.Local
+	dsnConfig.Timeout = 10 * time.Second
+	dsnConfig.ReadTimeout = 10 * time.Second
+	dsnConfig.WriteTimeout = 10 * time.Second
 	if os.Getenv("DB_TLS") == "true" {
 		dsnConfig.TLSConfig = "true"
 	}
@@ -41,12 +43,13 @@ func ConnectDatabase() {
 	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {
-		log.Fatal("Gagal terhubung ke database:", err)
+		return fmt.Errorf("gagal terhubung ke database: %w", err)
 	}
 
 	DB = database
 
 	fmt.Println("Database berhasil terhubung!")
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {
