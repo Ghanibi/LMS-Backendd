@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
@@ -35,7 +36,10 @@ func ConnectDatabase() error {
 	dsnConfig.Timeout = 10 * time.Second
 	dsnConfig.ReadTimeout = 10 * time.Second
 	dsnConfig.WriteTimeout = 10 * time.Second
-	if os.Getenv("DB_TLS") == "true" {
+	// TiDB Cloud Starter public endpoints reject plaintext connections. Apply
+	// TLS automatically for TiDB Cloud hosts so deployment env drift cannot
+	// accidentally disable transport encryption.
+	if os.Getenv("DB_TLS") == "true" || strings.HasSuffix(strings.ToLower(host), ".tidbcloud.com") {
 		dsnConfig.TLSConfig = "true"
 	}
 	dsn := dsnConfig.FormatDSN()
